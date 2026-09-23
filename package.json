@@ -1,0 +1,17 @@
+{
+  "name": "poster-hojas",
+  "version": "1.0.0",
+  "description": "Divide una imagen en varias hojas para imprimir como póster y genera un PDF (página estática)",
+  "private": true,
+  "scripts": {
+    "vendor": "node scripts/copy-vendor.js",
+    "postinstall": "node scripts/copy-vendor.js"
+  },
+  "license": "MIT",
+  "devDependencies": {
+    "heic2any": "^0.0.4",
+    "jspdf": "^4.2.1",
+    "jszip": "^3.10.2",
+    "utif": "^3.1.0"
+  }
+}

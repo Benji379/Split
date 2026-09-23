@@ -1,0 +1,23 @@
+{
+  "name": "Split — Imprimir imagen en varias hojas",
+  "short_name": "Split",
+  "description": "Divide una imagen en varias hojas A4 o carta y descarga un PDF listo para imprimir y armar tu póster.",
+  "lang": "es",
+  "dir": "ltr",
+  "id": "/",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#eef0f6",
+  "theme_color": "#4f46e5",
+  "categories": ["utilities", "productivity", "photo"],
+  "icons": [
+    { "src": "img/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "img/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "img/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "screenshots": [
+    { "src": "img/og-image.png", "sizes": "1200x630", "type": "image/png", "form_factor": "wide", "label": "Split divide una imagen en varias hojas" }
+  ]
+}
