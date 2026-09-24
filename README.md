@@ -32,6 +32,31 @@ Todo ocurre en el navegador: **tus imágenes no se suben a ningún servidor**.
 - Carga una imagen con clic o **arrastrándola** al recuadro o a la vista previa.
 - **Girar** 90° a la izquierda o a la derecha.
 - **Voltear** en espejo (horizontal) o de cabeza (vertical).
+- **Pegar** una imagen copiada con **Ctrl+V**.
+- **Supr** elimina la imagen seleccionada.
+
+### Texto y capas
+- **Añadir texto** como capa (botón o **clic derecho → Añadir texto aquí**). **Doble clic** sobre el texto para escribir directamente en la hoja; un clic abre su **ventana de configuración** junto al texto (texto, color, relleno o contorno, **interlineado**, **espacio entre letras** y fuente): texto de varias líneas, color, **relleno o contorno** y más de 25 fuentes (Google Fonts incluidas en `fonts/`). En el PDF el texto se vuelve a dibujar a la resolución de impresión, así que sale nítido.
+- **Trabajar con capas**: cada imagen que cargues o pegues se añade encima. En la lista de capas se **arrastra** cada una para cambiar el orden con el mouse: la capa se levanta como un bloque, se ve el hueco donde caerá y Escape cancela.
+- **Clic derecho** sobre una imagen: *Enviar todo adelante*, *Enviar adelante*, *Enviar atrás*, *Enviar todo atrás* y *Eliminar*.
+- **Deshacer / rehacer** con **Ctrl+Z / Ctrl+Y** o con los botones de la esquina superior izquierda.
+
+### Letras para imprimir (`/impresion-letras/`)
+- Tres modos: **Letras** (A–Z, a–z, vocales o las que escribas), **Números** (desde, hasta, de cuánto en cuánto y ceros a la izquierda; hasta 1000) y **Palabras** (frases completas que se reparten solas en una o más hojas).
+- Distribución de letras y números: **una por hoja** o **aprovechar la hoja** (caben todas las que se pueda según su tamaño, con la separación que elijas).
+- Palabras: **alto de letra**, **interlineado** (1,2 por defecto), **espacio entre palabras**, **espacio entre letras** (mm) y alineación.
+- Aprovechar la hoja: **separación horizontal** entre piezas e **interlineado** (separación vertical entre filas), en mm. El número de hojas se recalcula mientras cambias el tamaño.
+- Estilo **contorno** (para colorear, con grosor en mm) o **relleno** (para recortar), color, papel, orientación y margen (1 mm por defecto). **Lo más grande que quepa** calcula el alto máximo.
+- **Alto y ancho** de la letra en cm; con el candado abierto se cambian por separado (la letra se estira). La barra de arriba muestra las medidas reales y, al pasar el mouse sobre una letra, su alto y ancho.
+- Vista previa con **miniaturas a la izquierda** (como PowerPoint o Canva) y **todas las hojas en una columna con scroll**. Se **reordenan arrastrándolas** (la hoja se levanta, se ve el hueco donde caerá y Escape cancela).
+- Si una pieza no cabe se reduce solo esa y se marca.
+- **Descargar PDF** abre el mismo diálogo que el póster: eliges hojas y formato (un PDF o un .zip con un PDF por hoja).
+- **Mostrar el margen pintado** (también en el póster): la franja del margen se ve sombreada en pantalla; en el papel queda en blanco.
+
+### Fuentes
+- Más de 25 fuentes incluidas y un **buscador**.
+- **Fuente personalizada**: pega el `<link>` o la URL de Google Fonts y detecta las familias con todas sus variantes (pesos e itálicas), o sube un archivo **.ttf, .otf, .woff, .woff2 o un .zip** (como los de DaFont: se extraen las fuentes y se avisa si trae licencia). Cada estilo se prueba antes de añadirlo y se eligen los que quieras. Se recuerdan en ese navegador (los enlaces en `localStorage`, los archivos en IndexedDB).
+- **Selector de color propio**: colores rápidos, área de saturación y brillo, tono y código hex.
 
 ### Hojas
 - **Tamaño de papel:** A4 (por defecto), Carta, Oficio, Legal, A3, Tabloide o **Personalizado**. Con Personalizado se abre un diálogo para escribir el ancho y el alto en cm.
@@ -56,7 +81,7 @@ En el modo Libre puedes **mantener la proporción** y activar **"No salir de los
 - El **panel de configuración se puede minimizar** para ver la vista previa más grande.
 
 ### Impresión y descarga
-- **Líneas de corte punteadas** con una tijera ✂ dibujada en cada hoja.
+- **Líneas de corte punteadas** unos milímetros por fuera de la imagen de cada hoja.
 - **Numeración** de cada hoja (fila y columna).
 - Opción para **omitir hojas vacías**.
 - **Calidad** de 150, 300 o 600 dpi. Nunca se escala por encima de la resolución original.
@@ -114,6 +139,11 @@ Las librerías de HEIC y TIFF **solo se cargan cuando subes uno de esos archivos
 ├── style.css               # Estilos y diseño adaptable a celular
 ├── app.js                  # Lógica: vista previa, reglas, generación de PDF/ZIP
 ├── ui.js                   # Controles propios: desplegables y botones −/+
+├── fonts.js                # Lista de fuentes, carga bajo demanda y dibujo de texto
+├── fonts/                  # Fuentes .ttf (Google Fonts: OFL / Apache 2.0)
+├── impresion-letras/       # Página de letras para imprimir
+│   ├── index.html
+│   └── letras.js
 ├── vendor/                 # Librerías del navegador (no necesitan internet)
 │   ├── jspdf.umd.min.js    #   Generación de PDF
 │   ├── jszip.min.js        #   Generación de .zip

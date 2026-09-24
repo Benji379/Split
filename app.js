@@ -5,20 +5,28 @@
   const stage = $('stage');
 
   const state = {
-    img: null,        // HTMLImageElement original
-    src: null,        // imagen o canvas ya rotado que se usa para dibujar
-    natW: 0, natH: 0,
-    rotation: 0,
-    flipH: false,
-    flipV: false,
+    // Capas de abajo hacia arriba; cada una: { id, name, img, src, natW, natH, rotation, flipH, flipV, mode, rect, thumb }
+    layers: [],
+    selId: null,      // capa seleccionada
+    noLayerMode: 'contain',
     customPaper: null,   // {w, h} en mm cuando se elige "Personalizado"
     prevPaper: '210x297', // último tamaño aplicado, para volver si se cancela
     fileName: 'poster',
-    mode: 'contain',
-    rect: null,       // posición de la imagen en mm dentro del póster {x, y, w, h}
     view: { s: 1, ox: 0, oy: 0 },
     drag: null,
   };
+
+  // state.img, state.rect, state.mode… leen y escriben la capa seleccionada
+  // (rect = posición de la imagen en mm dentro del póster {x, y, w, h})
+  const selLayer = () => state.layers.find((l) => l.id === state.selId) || null;
+  const LAYER_DEFAULTS = { img: null, src: null, natW: 0, natH: 0, rotation: 0, flipH: false, flipV: false, rect: null };
+  for (const k of [...Object.keys(LAYER_DEFAULTS), 'mode']) {
+    Object.defineProperty(state, k, {
+      get() { const l = selLayer(); return l ? l[k] : k === 'mode' ? state.noLayerMode : LAYER_DEFAULTS[k]; },
+      set(v) { const l = selLayer(); if (l) l[k] = v; else if (k === 'mode') state.noLayerMode = v; },
+    });
+  }
+  let nextLayerId = 1;
 
   const HANDLE_PX = 9;
   const RULER = 32; // grosor de las reglas en px
@@ -55,10 +63,10 @@
   function clampInt(v, min, max) { v = parseInt(v, 10); return isNaN(v) ? min : Math.min(max, Math.max(min, v)); }
   function clampNum(v, min, max) { v = parseFloat(v); return isNaN(v) ? min : Math.min(max, Math.max(min, v)); }
 
-  function fitRect(mode, L) {
+  function fitRect(mode, L, layer = selLayer()) {
     const { posterW: W, posterH: H } = L;
     if (mode === 'stretch') return { x: 0, y: 0, w: W, h: H };
-    const ar = state.natW / state.natH;
+    const ar = layer.natW / layer.natH;
     let w, h;
     const containWide = W / H < ar;
     if ((mode === 'contain') === containWide) { w = W; h = W / ar; } else { h = H; w = H * ar; }
@@ -66,10 +74,11 @@
   }
 
   function applyMode() {
-    if (!state.src) return render();
     const L = layout();
-    if (state.mode !== 'free' || !state.rect) state.rect = fitRect(state.mode === 'free' ? 'contain' : state.mode, L);
-    else state.rect = boundRect(state.rect);
+    for (const l of state.layers) {
+      if (l.mode !== 'free' || !l.rect) l.rect = fitRect(l.mode === 'free' ? 'contain' : l.mode, L, l);
+      else l.rect = boundRect(l.rect);
+    }
     render();
   }
 
@@ -104,19 +113,27 @@
     ctx.fillStyle = '#fff';
     ctx.fillRect(X(-L.margin), Y(-L.margin), (L.posterW + 2 * L.margin) * s, (L.posterH + 2 * L.margin) * s);
     ctx.restore();
+    // Margen pintado (solo en pantalla; en el papel queda en blanco)
+    if ($('showMargin').checked && L.margin > 0) {
+      ctx.fillStyle = 'rgba(79,70,229,.1)';
+      ctx.beginPath();
+      ctx.rect(X(-L.margin), Y(-L.margin), (L.posterW + 2 * L.margin) * s, (L.posterH + 2 * L.margin) * s);
+      ctx.rect(X(0), Y(0), L.posterW * s, L.posterH * s);
+      ctx.fill('evenodd');
+    }
 
-    if (state.src && state.rect) {
-      const R = state.rect;
+    const drawn = state.layers.filter((l) => l.src && l.rect && l.id !== editing);
+    if (drawn.length) {
       // Parte fuera del póster, tenue
       ctx.globalAlpha = 0.25;
-      ctx.drawImage(state.src, X(R.x), Y(R.y), R.w * s, R.h * s);
+      for (const l of drawn) ctx.drawImage(l.src, X(l.rect.x), Y(l.rect.y), l.rect.w * s, l.rect.h * s);
       ctx.globalAlpha = 1;
-      // Parte imprimible
+      // Parte imprimible, de abajo hacia arriba
       ctx.save();
       ctx.beginPath();
       ctx.rect(X(0), Y(0), L.posterW * s, L.posterH * s);
       ctx.clip();
-      ctx.drawImage(state.src, X(R.x), Y(R.y), R.w * s, R.h * s);
+      for (const l of drawn) ctx.drawImage(l.src, X(l.rect.x), Y(l.rect.y), l.rect.w * s, l.rect.h * s);
       ctx.restore();
     }
 
@@ -138,13 +155,20 @@
     ctx.strokeStyle = 'rgba(0,0,0,.55)';
     ctx.strokeRect(X(0) + .5, Y(0) + .5, L.posterW * s, L.posterH * s);
     ctx.setLineDash([]);
-    ctx.fillStyle = 'rgba(0,0,0,.65)';
-    ctx.font = '14px system-ui, sans-serif';
-    ctx.fillText('✂', X(L.posterW) - 22, Y(0) + 5);
     ctx.fillStyle = 'rgba(31,111,235,.9)';
     ctx.font = '600 12px system-ui, sans-serif';
     for (let r = 0; r < L.rows; r++) for (let c = 0; c < L.cols; c++) {
       ctx.fillText(String(r * L.cols + c + 1), X(c * L.stepX) + 6, Y(r * L.stepY) + 16);
+    }
+
+    // Con varias capas se marca cuál está seleccionada
+    if (state.rect && state.mode !== 'free' && state.layers.length > 1) {
+      const R = state.rect;
+      ctx.strokeStyle = '#1f6feb';
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash([6, 4]);
+      ctx.strokeRect(X(R.x), Y(R.y), R.w * s, R.h * s);
+      ctx.setLineDash([]);
     }
 
     // Tiradores para modo libre
@@ -308,20 +332,35 @@
 
   function inRect(p, R) { return p.x >= R.x && p.x <= R.x + R.w && p.y >= R.y && p.y <= R.y + R.h; }
 
+  // Capa visible más arriba bajo el punto
+  function layerAt(p) {
+    for (let i = state.layers.length - 1; i >= 0; i--) {
+      const l = state.layers[i];
+      if (l.rect && inRect(p, l.rect)) return l;
+    }
+    return null;
+  }
+
   function setMode(mode) {
-    state.mode = mode;
+    state.mode = mode; // de la capa seleccionada
     document.querySelector(`input[name=mode][value=${mode}]`).checked = true;
     $('freeOpts').classList.toggle('on', mode === 'free');
   }
 
   canvas.addEventListener('pointerdown', (e) => {
-    if (!state.rect) return;
+    if (e.button !== 0) return;
+    if (editing) finishInlineEdit();
     const p = toMM(e);
-    const h = state.mode === 'free' ? hitHandle(p) : -1;
-    if (h < 0 && !inRect(p, state.rect)) return;
+    const h = state.rect && state.mode === 'free' ? hitHandle(p) : -1;
+    if (h < 0) {
+      const l = layerAt(p);
+      if (!l) { closeTextPop(); return; } // clic en una zona vacía
+      if (l.id !== state.selId) selectLayer(l.id);
+      if (l.kind !== 'text') closeTextPop();
+    }
     if (state.mode !== 'free') setMode('free');
     canvas.setPointerCapture(e.pointerId);
-    state.drag = { type: h >= 0 ? 'resize' : 'move', corner: h, start: p, rect: { ...state.rect } };
+    state.drag = { type: h >= 0 ? 'resize' : 'move', corner: h, start: p, rect: { ...state.rect }, sx: e.clientX, sy: e.clientY };
   });
 
   canvas.addEventListener('pointermove', (e) => {
@@ -332,10 +371,11 @@
       if (!state.rect) return render();
       const h = state.mode === 'free' ? hitHandle(p) : -1;
       canvas.style.cursor = h === 0 || h === 2 ? 'nwse-resize' : h === 1 || h === 3 ? 'nesw-resize'
-        : inRect(p, state.rect) ? 'move' : 'default';
+        : layerAt(p) ? 'move' : 'default';
       return render();
     }
     const d = state.drag, R0 = d.rect;
+    if (!d.moved && Math.hypot(e.clientX - d.sx, e.clientY - d.sy) > 3) d.moved = true;
     if (d.type === 'move') {
       state.rect = boundRect({ ...R0, x: R0.x + p.x - d.start.x, y: R0.y + p.y - d.start.y });
     } else {
@@ -365,7 +405,13 @@
     render();
   });
 
-  const endDrag = () => { state.drag = null; };
+  const endDrag = () => {
+    const d = state.drag;
+    state.drag = null;
+    // Un clic (sin arrastrar) sobre un texto abre su configuración
+    if (d && !d.moved && selLayer()?.kind === 'text') openTextPop();
+    else if (textPopOpen) placeTextPop();
+  };
   canvas.addEventListener('pointerleave', () => { state.mouse = null; render(); });
   canvas.addEventListener('pointerup', endDrag);
   canvas.addEventListener('pointercancel', endDrag);
@@ -498,36 +544,62 @@
         return;
       }
     }
-    state.img = img;
-    state.fileName = file.name.replace(/\.[^.]+$/, '') || 'poster';
-    state.rotation = 0;
-    state.flipH = state.flipV = false;
+    const name = file.name.replace(/\.[^.]+$/, '') || 'imagen';
+    state.fileName = name;
+    const cur = selLayer();
+    if (layersOn() || !cur || cur.kind === 'text') {
+      // Capa nueva encima de todo
+      const l = { id: nextLayerId++, name, img, src: null, natW: 0, natH: 0, rotation: 0, flipH: false, flipV: false, mode: 'contain', rect: null, thumb: '' };
+      state.layers.push(l);
+      state.selId = l.id;
+    } else {
+      // Sin capas: la imagen nueva reemplaza a la seleccionada
+      Object.assign(cur, { name, img, rotation: 0, flipH: false, flipV: false, rect: null });
+      if (cur.mode === 'free') cur.mode = 'contain';
+    }
     buildSource();
-    state.rect = null;
-    if (state.mode === 'free') setMode('contain');
     applyMode();
-    $('makePdf').disabled = $('downloadPdf').disabled = false;
+    refreshUI();
     status('');
+    commit();
+    markDirty();
+  }
+
+  // Imagen (o canvas de texto) ya girada y volteada
+  function orient(img, rotation, flipH, flipV) {
+    // Los SVG sin tamaño declarado reportan 0
+    const nw = img.naturalWidth ?? img.width;
+    const w = nw || 1000, h = (img.naturalHeight ?? img.height) || 1000;
+    if (rotation === 0 && !flipH && !flipV && nw) return img;
+    const rot = rotation % 180 !== 0;
+    const c = document.createElement('canvas');
+    c.width = rot ? h : w; c.height = rot ? w : h;
+    const g = c.getContext('2d');
+    g.translate(c.width / 2, c.height / 2);
+    g.scale(flipH ? -1 : 1, flipV ? -1 : 1);
+    g.rotate((rotation * Math.PI) / 180);
+    g.drawImage(img, -w / 2, -h / 2, w, h);
+    return c;
   }
 
   function buildSource() {
-    const img = state.img;
-    // Los SVG sin tamaño declarado reportan 0
-    const w = img.naturalWidth || 1000, h = img.naturalHeight || 1000;
-    if (state.rotation === 0 && !state.flipH && !state.flipV && img.naturalWidth) {
-      state.src = img; state.natW = w; state.natH = h;
-    } else {
-      const rot = state.rotation % 180 !== 0;
-      const c = document.createElement('canvas');
-      c.width = rot ? h : w; c.height = rot ? w : h;
-      const g = c.getContext('2d');
-      g.translate(c.width / 2, c.height / 2);
-      g.scale(state.flipH ? -1 : 1, state.flipV ? -1 : 1);
-      g.rotate((state.rotation * Math.PI) / 180);
-      g.drawImage(img, -w / 2, -h / 2, w, h);
-      state.src = c; state.natW = c.width; state.natH = c.height;
-    }
+    const src = orient(state.img, state.rotation, state.flipH, state.flipV);
+    state.src = src;
+    state.natW = src.naturalWidth || src.width;
+    state.natH = src.naturalHeight || src.height;
+    const l = selLayer();
+    if (l) l.thumb = makeThumb(l.src, l.natW, l.natH);
     $('imgInfo').textContent = `${state.natW} × ${state.natH} px`;
+  }
+
+  // Miniatura para la lista de capas
+  function makeThumb(src, w, h) {
+    const c = document.createElement('canvas');
+    c.width = c.height = 64;
+    const g = c.getContext('2d');
+    const k = Math.min(64 / w, 64 / h);
+    g.drawImage(src, (64 - w * k) / 2, (64 - h * k) / 2, w * k, h * k);
+    return c.toDataURL('image/png');
   }
 
   function rotate(delta) {
@@ -543,6 +615,7 @@
       state.rect = null;
     }
     applyMode();
+    renderLayerList();
   }
   $('rotL').onclick = () => rotate(-90);
   $('rotR').onclick = () => rotate(90);
@@ -551,6 +624,7 @@
     if (!state.img) return;
     state[axis] = !state[axis];
     buildSource(); // el tamaño no cambia, así que la posición se conserva
+    renderLayerList();
     render();
   }
   $('flipH').onclick = () => flip('flipH');
@@ -571,6 +645,7 @@
 
   // ---------- Controles ----------
   ['paper', 'orient', 'cols', 'rows', 'margin', 'glue', 'bounded'].forEach((id) => $(id).addEventListener('input', applyMode));
+  $('showMargin').addEventListener('change', () => render());
   document.querySelectorAll('input[name=mode]').forEach((r) => r.addEventListener('change', () => {
     setMode(r.value);
     if (r.value !== 'free') state.rect = null;
@@ -582,12 +657,17 @@
   // ---------- PDF ----------
   // Geometría de una hoja dentro del póster (mm)
   function sheetGeom(L, r, c) {
-    const R = state.rect;
     const px = c * L.stepX, py = r * L.stepY;
     // Las franjas de pegado (derecha/abajo) quedan tapadas por la hoja vecina: ahí no va imagen
     const glueR = c < L.cols - 1 ? L.overlap : 0, glueB = r < L.rows - 1 ? L.overlap : 0;
-    const x0 = Math.max(px, R.x), y0 = Math.max(py, R.y);
-    const x1 = Math.min(px + L.printW - glueR, R.x + R.w), y1 = Math.min(py + L.printH - glueB, R.y + R.h);
+    // Zona con imagen = unión de lo que cada capa pone en la hoja
+    let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+    for (const { rect: R } of state.layers) {
+      if (!R) continue;
+      const a = Math.max(px, R.x), b = Math.max(py, R.y);
+      const c2 = Math.min(px + L.printW - glueR, R.x + R.w), d = Math.min(py + L.printH - glueB, R.y + R.h);
+      if (c2 - a > 0.01 && d - b > 0.01) { x0 = Math.min(x0, a); y0 = Math.min(y0, b); x1 = Math.max(x1, c2); y1 = Math.max(y1, d); }
+    }
     return { r, c, n: r * L.cols + c + 1, px, py, glueR, glueB, x0, y0, x1, y1, hasImage: x1 - x0 > 0.01 && y1 - y0 > 0.01 };
   }
 
@@ -609,64 +689,69 @@
 
   // Dibuja una hoja completa en la página actual del PDF
   function drawSheet(pdf, L, G, tmp) {
-    const R = state.rect;
     const dpi = parseInt($('dpi').value, 10);
     const total = L.rows * L.cols;
-    const { px, py, glueR, glueB, x0, y0, x1, y1 } = G;
+    const { px, py, x0, y0, x1, y1 } = G;
 
     if (G.hasImage) {
-      // Porción de la imagen original que cae en esta hoja
+      // Todas las capas de la hoja compuestas en una sola imagen
       const g = tmp.getContext('2d');
-      const sx = (x0 - R.x) / R.w * state.natW, sy = (y0 - R.y) / R.h * state.natH;
-      const sw = (x1 - x0) / R.w * state.natW, sh = (y1 - y0) / R.h * state.natH;
       const dwmm = x1 - x0, dhmm = y1 - y0;
-      // No se escala por encima del dpi elegido ni por encima de la resolución original
-      tmp.width = Math.max(1, Math.round(Math.min(dwmm / 25.4 * dpi, Math.ceil(sw))));
-      tmp.height = Math.max(1, Math.round(Math.min(dhmm / 25.4 * dpi, Math.ceil(sh))));
+      // px por mm: el dpi elegido, sin pasar de la resolución de la capa más detallada
+      const srcs = new Map(state.layers.filter((l) => l.rect).map((l) => [l, printSource(l, dpi)]));
+      const dens = Math.min(dpi / 25.4, Math.max(...[...srcs].map(([l, c]) => (c.naturalWidth || c.width) / l.rect.w)));
+      tmp.width = Math.max(1, Math.round(dwmm * dens));
+      tmp.height = Math.max(1, Math.round(dhmm * dens));
+      g.setTransform(1, 0, 0, 1, 0, 0);
       g.fillStyle = '#fff';
       g.fillRect(0, 0, tmp.width, tmp.height);
+      const kx = tmp.width / dwmm, ky = tmp.height / dhmm;
+      g.setTransform(kx, 0, 0, ky, -x0 * kx, -y0 * ky);
       g.imageSmoothingQuality = 'high';
-      g.drawImage(state.src, sx, sy, sw, sh, 0, 0, tmp.width, tmp.height);
+      for (const [l, c] of srcs) g.drawImage(c, l.rect.x, l.rect.y, l.rect.w, l.rect.h);
+      g.setTransform(1, 0, 0, 1, 0, 0);
       pdf.addImage(tmp.toDataURL('image/jpeg', 0.92), 'JPEG',
         L.margin + x0 - px, L.margin + y0 - py, dwmm, dhmm, undefined, 'FAST');
     }
 
-    if (glueR || glueB) {
+    const GR = glueRects(L, G);
+    if (GR.r || GR.b) {
       const fs = Math.min(9, L.overlap * 2);
       pdf.setFontSize(fs);
       const tw = pdf.getTextWidth('PEGAR AQUÍ'), th = fs * 0.3528;
-      if (glueR) {
-        const gx = L.margin + L.printW - glueR;
-        pdf.setFillColor(225);
-        pdf.setTextColor(120);
-        pdf.rect(gx, L.margin, glueR, L.printH, 'F');
-        pdf.text('PEGAR AQUÍ', gx + glueR / 2 + th / 3, L.margin + L.printH / 2 + tw / 2, { angle: 90 });
+      pdf.setFillColor(225);
+      pdf.setTextColor(120);
+      // Solo a lo largo de la imagen: fuera de ella la franja se recorta
+      if (GR.r) {
+        const { x, y, w, h } = GR.r;
+        pdf.rect(x, y, w, h, 'F');
+        if (h > tw + 2) pdf.text('PEGAR AQUÍ', x + w / 2 + th / 3, y + h / 2 + tw / 2, { angle: 90 });
       }
-      if (glueB) {
-        const gy = L.margin + L.printH - glueB;
-        pdf.setFillColor(225);
-        pdf.setTextColor(120);
-        pdf.rect(L.margin, gy, L.printW - glueR, glueB, 'F');
-        pdf.text('PEGAR AQUÍ', L.margin + (L.printW - glueR - tw) / 2, gy + glueB / 2 + th / 3);
+      if (GR.b) {
+        const { x, y, w, h } = GR.b;
+        pdf.rect(x, y, w, h, 'F');
+        if (w > tw + 2) pdf.text('PEGAR AQUÍ', x + (w - tw) / 2, y + h / 2 + th / 3);
       }
     }
 
     if ($('cutMarks').checked && L.margin > 0) {
-      // Borde punteado alrededor del bloque: por aquí se corta con la tijera
+      // Borde punteado unos milímetros por fuera de la imagen: por aquí se corta
+      const B = cutBox(L, G), d = cutGap(L);
       pdf.setDrawColor(90);
       pdf.setLineWidth(0.35);
       pdf.setLineCap('round');
       pdf.setLineDashPattern([0, 1.4], 0);
-      pdf.rect(L.margin, L.margin, L.printW, L.printH);
+      pdf.rect(B.x - d, B.y - d, B.w + 2 * d, B.h + 2 * d);
       pdf.setLineDashPattern([], 0);
       pdf.setLineCap('butt');
-      drawScissors(pdf, L.margin + L.printW - 14, L.margin, 5, false);
-      drawScissors(pdf, L.margin, L.margin + L.printH - 14, 5, true);
     }
     if ($('labels').checked && L.margin >= 3) {
+      // Por encima de la línea de corte si cabe, para no pisarla
+      const top = $('cutMarks').checked ? cutBox(L, G).y - cutGap(L) : L.margin;
+      const ly = top - 1 >= 3 ? top - 1 : L.margin - 1;
       pdf.setFontSize(7);
       pdf.setTextColor(140);
-      pdf.text(`Hoja ${G.n}/${total} · fila ${G.r + 1}, columna ${G.c + 1}`, L.margin, L.margin - 1);
+      pdf.text(`Hoja ${G.n}/${total} · fila ${G.r + 1}, columna ${G.c + 1}`, L.margin, ly);
     }
   }
 
@@ -718,20 +803,28 @@
     setTimeout(() => URL.revokeObjectURL(a.href), 10000);
   }
 
-  // Tijera vectorial sobre la línea de corte (las fuentes estándar del PDF no traen ✂)
-  function drawScissors(pdf, cx, cy, size, vertical) {
-    const P = (u, v) => (vertical ? [cx + v, cy + u] : [cx + u, cy + v]);
-    const k = size / 5;
-    pdf.setFillColor(255);
-    const [bx, by] = P(-0.5 * k, -1.8 * k);
-    pdf.rect(bx, by, vertical ? 3.6 * k : 6 * k, vertical ? 6 * k : 3.6 * k, 'F');
-    pdf.setDrawColor(60);
-    pdf.setLineWidth(0.3 * k);
-    const [h1x, h1y] = P(0.6 * k, -0.9 * k), [h2x, h2y] = P(0.6 * k, 0.9 * k);
-    pdf.circle(h1x, h1y, 0.6 * k, 'S');
-    pdf.circle(h2x, h2y, 0.6 * k, 'S');
-    pdf.line(...P(1.1 * k, -0.6 * k), ...P(5 * k, 0.5 * k));
-    pdf.line(...P(1.1 * k, 0.6 * k), ...P(5 * k, -0.5 * k));
+  // Separación (mm) entre el borde del bloque impreso y la línea de corte
+  const cutGap = (L) => Math.min(3, L.margin / 2);
+
+  // Rectángulo (mm de página) que hay que recortar: la imagen de la hoja más las
+  // franjas de pegado a las que llega. Sin imagen, el bloque imprimible entero.
+  function cutBox(L, G) {
+    if (!G.hasImage) return { x: L.margin, y: L.margin, w: L.printW, h: L.printH };
+    const eps = 0.01;
+    const left = L.margin + G.x0 - G.px, top = L.margin + G.y0 - G.py;
+    let right = L.margin + G.x1 - G.px, bottom = L.margin + G.y1 - G.py;
+    if (G.glueR && G.x1 >= G.px + L.printW - G.glueR - eps) right = L.margin + L.printW;
+    if (G.glueB && G.y1 >= G.py + L.printH - G.glueB - eps) bottom = L.margin + L.printH;
+    return { x: left, y: top, w: right - left, h: bottom - top };
+  }
+
+  // Franjas de pegado (mm de página) limitadas al tramo que se recorta; null si no se usan
+  function glueRects(L, G) {
+    const B = cutBox(L, G), eps = 0.01;
+    const gx = L.margin + L.printW - G.glueR, gy = L.margin + L.printH - G.glueB;
+    const r = G.glueR && B.x + B.w >= L.margin + L.printW - eps ? { x: gx, y: B.y, w: G.glueR, h: B.h } : null;
+    const b = G.glueB && B.y + B.h >= L.margin + L.printH - eps ? { x: B.x, y: gy, w: gx - B.x, h: G.glueB } : null;
+    return { r, b };
   }
 
   $('makePdf').onclick = async () => {
@@ -757,7 +850,6 @@
 
   // Miniatura de una hoja tal como saldrá impresa
   function drawThumb(cv, L, G) {
-    const R = state.rect;
     const W = 160, k = W / L.pageW, H = Math.round(L.pageH * k);
     const dpr = window.devicePixelRatio || 1;
     cv.width = W * dpr; cv.height = H * dpr;
@@ -772,17 +864,18 @@
       g.beginPath();
       g.rect(G.x0 + ox, G.y0 + oy, G.x1 - G.x0, G.y1 - G.y0);
       g.clip();
-      g.drawImage(state.src, R.x + ox, R.y + oy, R.w, R.h);
+      for (const l of state.layers) if (l.rect) g.drawImage(l.src, l.rect.x + ox, l.rect.y + oy, l.rect.w, l.rect.h);
       g.restore();
     }
     g.fillStyle = '#e1e1e1';
-    if (G.glueR) g.fillRect(L.margin + L.printW - G.glueR, L.margin, G.glueR, L.printH);
-    if (G.glueB) g.fillRect(L.margin, L.margin + L.printH - G.glueB, L.printW - G.glueR, G.glueB);
+    const GR = glueRects(L, G);
+    for (const q of [GR.r, GR.b]) if (q) g.fillRect(q.x, q.y, q.w, q.h);
     if ($('cutMarks').checked && L.margin > 0) {
       g.strokeStyle = '#777';
       g.lineWidth = 0.8;
       g.setLineDash([1.5, 2.5]);
-      g.strokeRect(L.margin, L.margin, L.printW, L.printH);
+      const B = cutBox(L, G), d = cutGap(L);
+      g.strokeRect(B.x - d, B.y - d, B.w + 2 * d, B.h + 2 * d);
     }
   }
 
@@ -913,6 +1006,530 @@
       paperSel.dispatchEvent(new Event('change'));
     }
     applyMode();
+  });
+
+  // ---------- Capas ----------
+  const layersOn = () => $('layersOn').checked;
+  const layerList = $('layerList'), layerMenu = $('layerMenu');
+  const initialDropText = $('dropText').textContent;
+
+  function selectLayer(id) {
+    state.selId = id;
+    refreshUI();
+  }
+
+  // Deja la interfaz de acuerdo con las capas y la seleccionada
+  function refreshUI() {
+    const has = state.layers.length > 0;
+    $('makePdf').disabled = $('downloadPdf').disabled = !has;
+    $('drop').classList.toggle('has-file', has);
+    if (!has) $('dropText').textContent = initialDropText;
+    $('imgInfo').textContent = !has ? '' : selLayer()?.kind === 'text' ? '' : `${state.natW} × ${state.natH} px`;
+    refreshTextBox();
+    document.querySelector(`input[name=mode][value=${state.mode}]`).checked = true;
+    $('freeOpts').classList.toggle('on', state.mode === 'free');
+    $('layersBox').hidden = !layersOn();
+    renderLayerList();
+    render();
+  }
+
+  // Lista con la capa de arriba primero, como se ve en el póster
+  function renderLayerList() {
+    layerList.innerHTML = '';
+    for (const l of [...state.layers].reverse()) {
+      const li = document.createElement('li');
+      li.className = 'layer' + (l.id === state.selId ? ' selected' : '');
+      li.dataset.id = l.id;
+      li.innerHTML = `<img alt="" draggable="false"><span class="layer-name"></span>
+        <button type="button" class="layer-del" title="Eliminar capa (Supr)" aria-label="Eliminar capa"><svg viewBox="0 0 24 24"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/></svg></button>`;
+      li.querySelector('img').src = l.thumb;
+      li.querySelector('.layer-name').textContent = l.name;
+      layerList.appendChild(li);
+    }
+    $('layerEmpty').hidden = state.layers.length > 0;
+  }
+
+  // Cada cambio de capas es un paso de deshacer
+  function layersChanged() {
+    refreshUI();
+    commit();
+    markDirty();
+  }
+
+  function removeLayer(id) {
+    const i = state.layers.findIndex((l) => l.id === id);
+    if (i < 0) return;
+    state.layers.splice(i, 1);
+    if (state.selId === id) state.selId = (state.layers[i - 1] || state.layers[i])?.id ?? null;
+    layersChanged();
+  }
+
+  // where: 'front' (todo adelante), 'forward', 'backward', 'back' (todo atrás)
+  function moveLayer(id, where) {
+    const L = state.layers, i = L.findIndex((l) => l.id === id), n = L.length;
+    if (i < 0) return;
+    const j = { front: n - 1, forward: Math.min(n - 1, i + 1), backward: Math.max(0, i - 1), back: 0 }[where];
+    if (j === i) return;
+    L.splice(j, 0, L.splice(i, 1)[0]);
+    layersChanged();
+  }
+
+  $('layersOn').addEventListener('change', refreshUI);
+
+  // Supr elimina la imagen seleccionada
+  document.addEventListener('keydown', (e) => {
+    if ((e.key !== 'Delete' && e.key !== 'Backspace') || state.selId == null) return;
+    if (document.querySelector('dialog[open]') || e.target.closest('input, select, textarea')) return;
+    e.preventDefault();
+    closeLayerMenu();
+    removeLayer(state.selId);
+  });
+
+  // ----- Reordenar arrastrando (eventos de puntero, ver docs 0020) -----
+  const DRAG_THRESHOLD = 5; // px antes de decidir que no es un clic
+  let suppressClickUntil = 0;
+
+  layerList.addEventListener('click', (e) => {
+    const li = e.target.closest('.layer');
+    if (!li || performance.now() < suppressClickUntil) return;
+    const id = +li.dataset.id;
+    if (e.target.closest('.layer-del')) removeLayer(id);
+    else if (id !== state.selId) selectLayer(id);
+  });
+
+  layerList.addEventListener('pointerdown', (e) => {
+    const li = e.target.closest('.layer');
+    // Ni botón derecho, ni el icono de eliminar, ni el dedo (con el dedo la lista se desplaza)
+    if (!li || e.button !== 0 || e.pointerType === 'touch' || e.target.closest('.layer-del')) return;
+    e.preventDefault();
+    const id = +li.dataset.id, sx = e.clientX, sy = e.clientY;
+    let lifted = false, float = null, gap = null, grabX = 0, grabY = 0;
+
+    // Delante de la primera capa cuya mitad quede por debajo del puntero; si ninguna, al final.
+    // La capa que viaja nunca cuenta como referencia.
+    const placeGap = (y) => {
+      const next = [...layerList.querySelectorAll('.layer')].find((x) => {
+        if (x === li) return false;
+        const r = x.getBoundingClientRect();
+        return r.top + r.height / 2 > y;
+      });
+      layerList.insertBefore(gap, next || null);
+    };
+
+    const onMove = (ev) => {
+      if (!lifted) {
+        if (Math.hypot(ev.clientX - sx, ev.clientY - sy) < DRAG_THRESHOLD) return;
+        lifted = true;
+        const r = li.getBoundingClientRect();
+        grabX = sx - r.left; grabY = sy - r.top; // se conserva el punto de agarre
+        float = li.cloneNode(true);
+        float.classList.add('layer-float');
+        float.style.width = r.width + 'px';
+        float.style.height = r.height + 'px';
+        document.body.appendChild(float);
+        gap = document.createElement('li');
+        gap.className = 'layer-gap';
+        gap.style.height = r.height + 'px';
+        layerList.insertBefore(gap, li);
+        li.hidden = true; // está en la mano, no en la lista
+        document.body.classList.add('dragging-layer');
+      }
+      float.style.left = ev.clientX - grabX + 'px';
+      float.style.top = ev.clientY - grabY + 'px';
+      placeGap(ev.clientY);
+    };
+
+    const stop = () => {
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+      window.removeEventListener('pointercancel', onCancel);
+      window.removeEventListener('keydown', onKey, true);
+      if (!lifted) return;
+      suppressClickUntil = performance.now() + 300;
+      float.remove();
+      gap.remove();
+      li.hidden = false;
+      document.body.classList.remove('dragging-layer');
+    };
+
+    const onUp = (ev) => {
+      if (!lifted) return stop(); // era un clic: lo atiende el evento click
+      placeGap(ev.clientY); // el destino final sale del propio pointerup
+      const ids = [...layerList.children].map((x) => (x === gap ? id : x === li ? null : +x.dataset.id)).filter((x) => x != null);
+      stop();
+      const order = ids.reverse(); // la lista va de arriba hacia abajo
+      state.selId = id;
+      // Soltarla donde ya estaba no es un cambio
+      if (order.join() === state.layers.map((l) => l.id).join()) return refreshUI();
+      state.layers = order.map((i) => state.layers.find((l) => l.id === i));
+      layersChanged();
+    };
+    const onCancel = () => { stop(); renderLayerList(); };
+    const onKey = (ev) => {
+      if (ev.key !== 'Escape' || !lifted) return;
+      ev.preventDefault();
+      ev.stopPropagation();
+      onCancel();
+    };
+
+    // En window y desde ya: un gesto rápido no debe perder el pointerup
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp);
+    window.addEventListener('pointercancel', onCancel);
+    window.addEventListener('keydown', onKey, true);
+  });
+
+  // ----- Menú del clic derecho sobre una imagen -----
+  let menuAt = null; // punto del póster (mm) donde se abrió el menú
+  function openLayerMenu(id, x, y) {
+    if (id != null) selectLayer(id);
+    const l = id != null ? selLayer() : null;
+    // Sin imagen debajo solo se ofrece añadir texto
+    layerMenu.querySelectorAll('[data-act]:not([data-act=addtext]), hr:not(.menu-sep-text)').forEach((el) => { el.hidden = !l; });
+    layerMenu.querySelector('[data-act=edittext]').hidden = !l || l.kind !== 'text';
+    layerMenu.querySelector('.menu-sep-text').hidden = !l;
+    layerMenu.hidden = false;
+    layerMenu.style.left = Math.max(8, Math.min(x, innerWidth - layerMenu.offsetWidth - 8)) + 'px';
+    layerMenu.style.top = Math.max(8, Math.min(y, innerHeight - layerMenu.offsetHeight - 8)) + 'px';
+    layerMenu.querySelector('button:not(:disabled):not([hidden])')?.focus();
+    if (!l) return;
+    const i = state.layers.findIndex((q) => q.id === id), top = i === state.layers.length - 1;
+    layerMenu.querySelector('[data-act=front]').disabled = top;
+    layerMenu.querySelector('[data-act=forward]').disabled = top;
+    layerMenu.querySelector('[data-act=backward]').disabled = i === 0;
+    layerMenu.querySelector('[data-act=back]').disabled = i === 0;
+  }
+  function closeLayerMenu() { layerMenu.hidden = true; }
+
+  canvas.addEventListener('contextmenu', (e) => {
+    e.preventDefault();
+    if (editing) finishInlineEdit();
+    menuAt = toMM(e);
+    const l = layerAt(menuAt);
+    openLayerMenu(l ? l.id : null, e.clientX, e.clientY);
+  });
+  layerList.addEventListener('contextmenu', (e) => {
+    const li = e.target.closest('.layer');
+    if (!li) return;
+    e.preventDefault();
+    openLayerMenu(+li.dataset.id, e.clientX, e.clientY);
+  });
+  layerMenu.addEventListener('click', (e) => {
+    const b = e.target.closest('button[data-act]');
+    if (!b || b.disabled) return;
+    closeLayerMenu();
+    if (b.dataset.act === 'addtext') addText(menuAt);
+    else if (b.dataset.act === 'edittext') startInlineEdit();
+    else if (b.dataset.act === 'delete') removeLayer(state.selId);
+    else moveLayer(state.selId, b.dataset.act);
+  });
+  document.addEventListener('pointerdown', (e) => { if (!layerMenu.hidden && !layerMenu.contains(e.target)) closeLayerMenu(); });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !layerMenu.hidden) closeLayerMenu(); });
+  window.addEventListener('blur', closeLayerMenu);
+  window.addEventListener('resize', closeLayerMenu);
+  document.addEventListener('wheel', closeLayerMenu, { passive: true });
+
+  // ---------- Capas de texto ----------
+  const TEXT_PX = 400; // tamaño de la letra en la vista previa; el PDF se redibuja a su resolución
+  const textBox = $('textBox');
+  const textFonts = SplitFonts.fontList($('textFonts'), (font) => updateText({ font }));
+
+  // El texto se dibuja en un canvas que hace de "imagen original" de la capa
+  function renderText(l, size = TEXT_PX) {
+    return SplitFonts.textCanvas({
+      text: l.text, font: l.font, color: l.color, style: l.style, size,
+      lineHeight: l.lineHeight || 1.15, tracking: size * (l.tracking || 0) / 100, // tracking en % del tamaño
+    });
+  }
+
+  // at: punto del póster (mm) donde centrarlo; sin él, en el centro
+  async function addText(at) {
+    const l = {
+      id: nextLayerId++, kind: 'text', name: 'Texto', text: 'Texto', font: SplitFonts.FONTS.find((f) => !f.custom).name,
+      color: '#1b1f3b', style: 'fill', img: null, src: null, natW: 0, natH: 0,
+      rotation: 0, flipH: false, flipV: false, mode: 'free', rect: null, thumb: '',
+    };
+    await SplitFonts.load(l.font);
+    l.img = renderText(l);
+    state.layers.push(l);
+    state.selId = l.id;
+    $('layersOn').checked = true; // el texto va encima de la imagen: se trabaja con capas
+    buildSource();
+    // Centrado, a lo ancho de más de la mitad del póster
+    const L = layout();
+    // Tamaño prudente: un octavo del lado corto del póster y como mucho la mitad del ancho,
+    // siempre dentro del póster para que se vea entero
+    let h = Math.min(L.posterH, L.posterW) * 0.12, w = h * l.natW / l.natH;
+    if (w > L.posterW * 0.5) { w = L.posterW * 0.5; h = w * l.natH / l.natW; }
+    const cx = at ? at.x : L.posterW / 2, cy = at ? at.y : L.posterH / 2;
+    l.rect = {
+      x: Math.min(Math.max(0, cx - w / 2), L.posterW - w),
+      y: Math.min(Math.max(0, cy - h / 2), L.posterH - h), w, h,
+    };
+    layersChanged();
+    openTextPop();
+    startInlineEdit(true); // se escribe directamente en la hoja
+  }
+  $('addText').onclick = () => addText();
+
+  // Cambia el texto de la capa seleccionada conservando su alto y su centro
+  async function updateText(changes) {
+    const l = selLayer();
+    if (!l || l.kind !== 'text') return;
+    Object.assign(l, changes);
+    if (changes.font) await SplitFonts.load(l.font);
+    const c = renderText(l);
+    if (!c) { render(); return; } // solo espacios: se deja como estaba hasta que haya texto
+    l.img = c;
+    l.name = l.text.trim().split('\n')[0].slice(0, 30) || 'Texto';
+    const R = l.rect, oldW = l.natW;
+    buildSource();
+    if (R) {
+      // Mismo tamaño de letra: el recuadro crece o se achica con el texto, centrado y desde arriba
+      const k = R.w / oldW, w = l.natW * k, h = l.natH * k;
+      l.rect = boundRect({ x: R.x + R.w / 2 - w / 2, y: R.y, w, h });
+    }
+    refreshUI();
+    scheduleCommit();
+    markDirty();
+  }
+
+  $('textValue').addEventListener('input', (e) => updateText({ text: e.target.value }));
+  $('textColor').addEventListener('input', (e) => updateText({ color: e.target.value }));
+  document.querySelectorAll('input[name=textStyle]').forEach((r) => r.addEventListener('change', () => updateText({ style: r.value })));
+  $('textLine').addEventListener('input', (e) => {
+    const v = parseFloat(e.target.value);
+    if (v >= 0.5 && v <= 4) updateText({ lineHeight: v });
+  });
+  $('textTrack').addEventListener('input', (e) => {
+    const v = parseFloat(e.target.value);
+    if (v >= -20 && v <= 200) updateText({ tracking: v });
+  });
+
+  let textPopOpen = false;
+  function openTextPop() {
+    if (selLayer()?.kind !== 'text') return;
+    textPopOpen = true;
+    refreshTextBox();
+  }
+  function closeTextPop() {
+    if (!textPopOpen) return;
+    textPopOpen = false;
+    textBox.hidden = true;
+  }
+  $('textPopClose').onclick = closeTextPop;
+  textBox.addEventListener('keydown', (e) => { if (e.key === 'Escape') { e.stopPropagation(); closeTextPop(); } });
+
+  // Junto al texto: a la derecha si cabe, si no a la izquierda o debajo; siempre dentro de la vista
+  function placeTextPop() {
+    const l = selLayer();
+    if (!l || !l.rect || textBox.hidden) return;
+    const { s, ox, oy } = state.view, R = l.rect;
+    const box = stage.getBoundingClientRect();
+    const x0 = ox + R.x * s, x1 = ox + (R.x + R.w) * s, y0 = oy + R.y * s;
+    const w = textBox.offsetWidth, h = textBox.offsetHeight, gap = 14;
+    let left = x1 + gap;
+    if (left + w > box.width - 8) left = x0 - gap - w;
+    if (left < 8) left = Math.min(Math.max(8, x0), box.width - w - 8);
+    const top = Math.min(Math.max(8, y0), Math.max(8, box.height - h - 8));
+    textBox.style.left = left + 'px';
+    textBox.style.top = top + 'px';
+  }
+
+  function refreshTextBox() {
+    const l = selLayer();
+    const on = !!l && l.kind === 'text' && textPopOpen;
+    if (l?.kind !== 'text') textPopOpen = false;
+    textBox.hidden = !on;
+    if (!on) return;
+    requestAnimationFrame(placeTextPop);
+    if (document.activeElement !== $('textValue')) $('textValue').value = l.text;
+    $('textColor').value = l.color;
+    document.querySelector(`input[name=textStyle][value=${l.style}]`).checked = true;
+    textFonts.select(l.font);
+    if (document.activeElement !== $('textLine')) $('textLine').value = l.lineHeight || 1.15;
+    if (document.activeElement !== $('textTrack')) $('textTrack').value = l.tracking || 0;
+  }
+
+  // Doble clic sobre un texto: se escribe directamente en la hoja
+  const inline = $('inlineEdit');
+  let editing = null;
+  function placeInline() {
+    const l = state.layers.find((q) => q.id === editing);
+    if (!l || !l.rect) return;
+    const { s, ox, oy } = state.view, R = l.rect;
+    // Misma escala con la que se dibuja el texto en la hoja
+    const k = R.h * s / l.img.height, fs = TEXT_PX * k;
+    // La línea base del editor cae donde la del dibujo
+    const m = SplitFonts.measure(l.text.split('\n')[0] || 'H', l.font, fs);
+    const lh = l.lineHeight || 1.15;
+    const baseInBox = (fs * lh - (m.fontAscent + m.fontDescent)) / 2 + m.fontAscent;
+    const top = oy + R.y * s + l.img.baseline * k - baseInBox;
+    Object.assign(inline.style, {
+      left: ox + R.x * s + 'px', top: top + 'px', width: R.w * s + 'px',
+      height: Math.max(fs * lh, oy + (R.y + R.h) * s - top) + 'px',
+      lineHeight: lh, letterSpacing: (l.tracking || 0) / 100 + 'em',
+      fontFamily: SplitFonts.css(l.font), fontWeight: SplitFonts.byName(l.font).weight,
+      fontStyle: SplitFonts.byName(l.font).style, fontSize: fs + 'px', color: l.color,
+    });
+  }
+  function startInlineEdit(selectAll) {
+    const l = selLayer();
+    if (!l || l.kind !== 'text') return;
+    // Girado o volteado no se puede escribir encima: se usa la ventana
+    if (l.rotation || l.flipH || l.flipV) { openTextPop(); $('textValue').focus(); return; }
+    editing = l.id;
+    inline.value = l.text;
+    inline.hidden = false;
+    placeInline();
+    render();
+    inline.focus();
+    if (selectAll) inline.select();
+  }
+  function finishInlineEdit() {
+    if (!editing) return;
+    editing = null;
+    inline.hidden = true;
+    render();
+    commit();
+  }
+  inline.addEventListener('input', async () => {
+    await updateText({ text: inline.value });
+    if (document.activeElement !== $('textValue')) $('textValue').value = inline.value;
+    placeInline();
+  });
+  inline.addEventListener('blur', finishInlineEdit);
+  inline.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' || (e.key === 'Enter' && (e.ctrlKey || e.metaKey))) { e.preventDefault(); inline.blur(); }
+    e.stopPropagation(); // Supr, Ctrl+Z… son del texto, no del póster
+  });
+  canvas.addEventListener('dblclick', (e) => {
+    const l = layerAt(toMM(e));
+    if (l && l.kind === 'text') { selectLayer(l.id); startInlineEdit(); }
+  });
+
+  // Imagen de cada capa para el PDF: los textos se redibujan nítidos a la resolución de impresión
+  const printCache = new WeakMap();
+  function printSource(l, dpi) {
+    if (l.kind !== 'text' || !l.rect) return l.src;
+    const hit = printCache.get(l.src);
+    if (hit && hit.dpi === dpi) return hit.c;
+    const want = (dpi / 25.4) * l.rect.w / l.natW; // cuánto más grande hace falta
+    const side = Math.max(l.img.width, l.img.height) * want;
+    const k = Math.min(want, want * 12000 / side); // sin pasar de 12000 px por lado
+    let c = l.src;
+    if (k > 1) {
+      const t = renderText(l, TEXT_PX * k);
+      if (t) c = orient(t, l.rotation, l.flipH, l.flipV);
+    }
+    printCache.set(l.src, { dpi, c });
+    return c;
+  }
+
+  // ---------- Deshacer / rehacer ----------
+  // Cada paso guarda la configuración completa (controles + imagen y su posición)
+  const controls = [...document.querySelectorAll('.panel input, .panel select')].filter((el) => el.type !== 'file' && !el.closest('#textBox'));
+  const ctlKey = (el) => el.id || `${el.name}=${el.value}`;
+  const customOpt = paperSel.querySelector('option[value=custom]');
+  const undoStack = [];
+  let histPos = -1, histTimer = 0;
+
+  function snapshot() {
+    const ctl = {};
+    for (const el of controls) ctl[ctlKey(el)] = el.type === 'checkbox' || el.type === 'radio' ? el.checked : el.value;
+    const { fileName, customPaper, prevPaper } = state;
+    const layers = state.layers.map((l) => ({ ...l, rect: l.rect && { ...l.rect } }));
+    return {
+      layers,
+      selId: state.selId, // seleccionar otra capa no cuenta como paso de deshacer
+      key: JSON.stringify({
+        ctl, customLabel: customOpt.textContent, fileName, customPaper, prevPaper,
+        layers: layers.map(({ id, name, rotation, flipH, flipV, mode, rect, text, font, color, style, lineHeight, tracking }) =>
+          ({ id, name, rotation, flipH, flipV, mode, rect, text, font, color, style, lineHeight, tracking })),
+      }),
+      dropText: $('dropText').textContent,
+    };
+  }
+
+  function commit() {
+    clearTimeout(histTimer);
+    if (state.drag || document.querySelector('dialog[open]')) return;
+    const snap = snapshot(), cur = undoStack[histPos];
+    if (cur && cur.key === snap.key && cur.layers.every((l, i) => l.img === snap.layers[i].img && l.src === snap.layers[i].src)) {
+      cur.selId = snap.selId;
+      return;
+    }
+    undoStack.splice(histPos + 1);
+    undoStack.push(snap);
+    if (undoStack.length > 100) undoStack.shift();
+    histPos = undoStack.length - 1;
+    updateHistButtons();
+  }
+  const scheduleCommit = (ms = 400) => { clearTimeout(histTimer); histTimer = setTimeout(commit, ms); };
+
+  function restore(snap) {
+    const d = JSON.parse(snap.key);
+    for (const el of controls) {
+      const v = d.ctl[ctlKey(el)];
+      if (v === undefined) continue;
+      if (el.type === 'checkbox' || el.type === 'radio') el.checked = v;
+      else el.value = v;
+    }
+    customOpt.textContent = d.customLabel;
+    // Refresca los desplegables personalizados
+    document.querySelectorAll('.panel select').forEach((sel) => sel.dispatchEvent(new Event('change')));
+    Object.assign(state, { fileName: d.fileName, customPaper: d.customPaper, prevPaper: d.prevPaper });
+    state.layers = snap.layers.map((l) => ({ ...l, rect: l.rect && { ...l.rect } }));
+    state.selId = state.layers.some((l) => l.id === snap.selId) ? snap.selId : state.layers.at(-1)?.id ?? null;
+    $('dropText').textContent = snap.dropText;
+    refreshUI();
+  }
+
+  function undo() {
+    commit(); // guarda antes cualquier cambio pendiente
+    if (histPos <= 0) return;
+    restore(undoStack[--histPos]);
+    updateHistButtons();
+  }
+  function redo() {
+    commit();
+    if (histPos >= undoStack.length - 1) return;
+    restore(undoStack[++histPos]);
+    updateHistButtons();
+  }
+  function updateHistButtons() {
+    $('undo').disabled = histPos <= 0;
+    $('redo').disabled = histPos >= undoStack.length - 1;
+  }
+
+  $('undo').onclick = undo;
+  $('redo').onclick = redo;
+  document.addEventListener('keydown', (e) => {
+    if (!(e.ctrlKey || e.metaKey) || e.altKey || document.querySelector('dialog[open]')) return;
+    const k = e.key.toLowerCase();
+    if (k === 'z' && !e.shiftKey) { e.preventDefault(); undo(); }
+    else if (k === 'y' || (k === 'z' && e.shiftKey)) { e.preventDefault(); redo(); }
+  });
+  const panelEl = document.querySelector('.panel');
+  panelEl.addEventListener('input', () => scheduleCommit());
+  panelEl.addEventListener('change', () => scheduleCommit());
+  panelEl.addEventListener('click', () => scheduleCommit(0));
+  canvas.addEventListener('pointerup', () => scheduleCommit(0));
+  canvas.addEventListener('pointercancel', () => scheduleCommit(0));
+  canvas.addEventListener('wheel', () => scheduleCommit(), { passive: true });
+  paperDlg.addEventListener('close', () => scheduleCommit(0));
+  commit(); // estado inicial
+
+  // ---------- Pegar imagen (Ctrl+V) ----------
+  const pastedFile = (blob) => new File([blob], `imagen-pegada.${(blob.type.split('/')[1] || 'png').replace('+xml', '')}`, { type: blob.type });
+
+  document.addEventListener('paste', (e) => {
+    if (document.querySelector('dialog[open]')) return;
+    const item = [...(e.clipboardData?.items || [])].find((it) => it.kind === 'file' && it.type.startsWith('image/'));
+    const file = item && item.getAsFile();
+    if (!file) return; // sin imagen: el pegado normal (p. ej. en un campo) sigue igual
+    e.preventDefault();
+    loadFile(file.name && file.name !== 'image.png' ? file : pastedFile(file));
   });
 
   // ---------- Aviso de cambios sin guardar ----------

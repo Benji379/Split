@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Letras para imprimir — abecedario, números y palabras | Split</title>
+  <meta name="description" content="Imprime letras grandes del abecedario, números o frases completas para colorear o recortar. Elige la fuente, el tamaño en centímetros y el papel, y descarga el PDF. Gratis y desde el navegador.">
+  <meta name="robots" content="index, follow">
+  <link rel="canonical" href="https://split.beyfast.com/impresion-letras/">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Split · BeyFast">
+  <meta property="og:locale" content="es_ES">
+  <meta property="og:url" content="https://split.beyfast.com/impresion-letras/">
+  <meta property="og:title" content="Letras para imprimir: abecedario, números y palabras">
+  <meta property="og:description" content="Letras grandes para colorear o recortar, con la fuente y el tamaño que elijas. PDF listo para imprimir.">
+  <meta property="og:image" content="https://split.beyfast.com/img/og-image.png">
+  <link rel="icon" href="../favicon.ico" sizes="any">
+  <link rel="icon" type="image/png" sizes="192x192" href="../img/icon-192.png">
+  <link rel="apple-touch-icon" href="../apple-touch-icon.png">
+  <meta name="theme-color" content="#4f46e5">
+  <link rel="stylesheet" href="../style.css">
+</head>
+<body class="letters-page">
+  <h1 class="sr-only">Letras para imprimir: abecedario, números y palabras</h1>
+  <aside class="panel" aria-label="Configuración de las letras">
+    <a class="back-link" href="../">
+      <svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg><span>Volver al póster</span>
+    </a>
+
+    <section class="card">
+      <h2><span class="num">1</span> Qué imprimir</h2>
+      <div class="seg seg3" role="radiogroup" aria-label="Qué imprimir">
+        <label><input type="radio" name="abcKind" value="letters" checked><span>Letras</span></label>
+        <label><input type="radio" name="abcKind" value="numbers"><span>Números</span></label>
+        <label><input type="radio" name="abcKind" value="words"><span>Palabras</span></label>
+      </div>
+
+      <div class="kind" data-kind="letters">
+        <label class="field">Letras
+          <input type="text" id="abcText" value="ABCDEFGHIJKLMNÑOPQRSTUVWXYZ" spellcheck="false" autocomplete="off">
+        </label>
+        <div class="chips">
+          <button class="chip" type="button" data-set="ABCDEFGHIJKLMNÑOPQRSTUVWXYZ">A–Z</button>
+          <button class="chip" type="button" data-set="abcdefghijklmnñopqrstuvwxyz">a–z</button>
+          <button class="chip" type="button" data-set="AEIOU">Vocales</button>
+          <button class="chip" type="button" data-set="">Borrar</button>
+        </div>
+        <p class="hint">Cada letra es una pieza. Los espacios no cuentan.</p>
+      </div>
+
+      <div class="kind" data-kind="numbers" hidden>
+        <div class="grid2">
+          <label class="field">Desde
+            <input type="number" id="numFrom" min="-9999" max="99999" step="1" value="1" inputmode="numeric">
+          </label>
+          <label class="field">Hasta
+            <input type="number" id="numTo" min="-9999" max="99999" step="1" value="10" inputmode="numeric">
+          </label>
+          <label class="field">De cuánto en cuánto
+            <input type="number" id="numStep" min="1" max="1000" step="1" value="1" inputmode="numeric">
+          </label>
+        </div>
+        <label class="switch"><input type="checkbox" id="numPad"><span class="track"></span> Ceros a la izquierda (01, 02…)</label>
+        <p class="hint">Si "Desde" es mayor que "Hasta" cuenta hacia atrás. Máximo 1000 números.</p>
+      </div>
+
+      <div class="kind" data-kind="words" hidden>
+        <label class="field">Texto
+          <textarea id="wordsText" rows="4" spellcheck="false">Bienvenidos a clases</textarea>
+        </label>
+        <p class="hint">Escribe frases completas: se acomodan solas en una o más hojas. Enter para empezar otra línea.</p>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2><span class="num">2</span> Distribución</h2>
+      <div class="dist" data-for="letters numbers">
+        <div class="seg" role="radiogroup" aria-label="Distribución">
+          <label><input type="radio" name="abcLayout" value="single"><span>Una por hoja</span></label>
+          <label><input type="radio" name="abcLayout" value="pack" checked><span>Aprovechar la hoja</span></label>
+        </div>
+        <div class="grid2" id="gapField">
+          <label class="field">Separación horizontal (mm)
+            <input type="number" id="abcGap" min="0" max="100" step="1" value="5" inputmode="numeric">
+          </label>
+          <label class="field">Interlineado (mm)
+            <input type="number" id="abcGapY" min="0" max="100" step="1" value="5" inputmode="numeric">
+          </label>
+        </div>
+        <p class="hint" id="layoutHint"></p>
+      </div>
+      <div class="dist" data-for="words" hidden>
+        <div class="grid2">
+          <label class="field">Interlineado
+            <input type="number" id="lineH" min="0.6" max="4" step="0.05" value="1.2" inputmode="decimal">
+          </label>
+          <label class="field">Espacio entre palabras
+            <input type="number" id="wordSp" min="0.2" max="6" step="0.1" value="1" inputmode="decimal">
+          </label>
+        </div>
+        <div class="field">Alineación
+          <div class="seg seg3" role="radiogroup" aria-label="Alineación">
+            <label><input type="radio" name="abcAlign" value="left"><span>Izquierda</span></label>
+            <label><input type="radio" name="abcAlign" value="center" checked><span>Centro</span></label>
+            <label><input type="radio" name="abcAlign" value="right"><span>Derecha</span></label>
+          </div>
+        </div>
+      </div>
+      <label class="field track-field" id="trackField">Espacio entre letras (mm)
+        <input type="number" id="letterSp" min="-10" max="100" step="0.5" value="0" inputmode="decimal">
+      </label>
+    </section>
+
+    <section class="card">
+      <h2><span class="num">3</span> Estilo</h2>
+      <div class="seg" role="radiogroup" aria-label="Estilo">
+        <label><input type="radio" name="abcStyle" value="outline" checked><span>Contorno · colorear</span></label>
+        <label><input type="radio" name="abcStyle" value="fill"><span>Relleno · recortar</span></label>
+      </div>
+      <div class="grid2">
+        <label class="field">Color
+          <input type="color" id="abcColor" value="#1b1f3b">
+        </label>
+        <label class="field" id="strokeField">Grosor del contorno (mm)
+          <input type="number" id="abcStroke" min="0.3" max="10" step="0.1" value="1.2" inputmode="decimal">
+        </label>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2><span class="num">4</span> Fuente</h2>
+      <ul class="font-list tall" id="abcFonts" aria-label="Fuentes"></ul>
+    </section>
+
+    <section class="card">
+      <h2><span class="num">5</span> Hoja y tamaño</h2>
+      <div class="grid2">
+        <label class="field span2">Tamaño de papel
+          <select id="abcPaper">
+            <option value="215.9x279.4">Carta (bond 21.6 × 27.9 cm)</option>
+            <option value="215.9x330.2">Oficio (21.6 × 33 cm)</option>
+            <option value="215.9x355.6">Legal (21.6 × 35.6 cm)</option>
+            <option value="210x297" selected>A4 (21 × 29.7 cm)</option>
+            <option value="297x420">A3 (29.7 × 42 cm)</option>
+            <option value="279.4x431.8">Tabloide (27.9 × 43.2 cm)</option>
+          </select>
+        </label>
+        <label class="field span2">Orientación
+          <select id="abcOrient">
+            <option value="portrait">Vertical</option>
+            <option value="landscape">Horizontal</option>
+          </select>
+        </label>
+        <div class="field span2">Tamaño de la letra (cm)
+          <div class="size-pair">
+            <label class="size-field"><span>Alto</span>
+              <input type="number" id="abcHeight" min="0.5" max="100" step="0.5" value="2" inputmode="decimal" aria-label="Alto de letra en cm">
+            </label>
+            <button type="button" class="lock" id="abcLock" aria-pressed="true" title="Mantener la proporción (quítalo para cambiar el alto y el ancho por separado)">
+              <svg class="ico-on" viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>
+              <svg class="ico-off" viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 7.5-2"/></svg>
+            </button>
+            <label class="size-field"><span>Ancho</span>
+              <input type="number" id="abcWidth" min="0.2" max="200" step="0.1" value="1.6" inputmode="decimal" aria-label="Ancho de letra en cm">
+            </label>
+          </div>
+        </div>
+        <label class="field">Margen (mm)
+          <input type="number" id="abcMargin" min="0" max="50" step="1" value="1" inputmode="numeric">
+        </label>
+      </div>
+      <button class="btn add-text" id="abcFit" type="button" title="Pone el alto más grande con el que cada pieza cabe en una hoja">
+        <svg viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg><span>Lo más grande que quepa</span>
+      </button>
+      <label class="switch"><input type="checkbox" id="abcShowMargin" checked><span class="track"></span> Mostrar el margen pintado</label>
+      <p class="hint">El alto se mide en las mayúsculas y el ancho en la pieza más ancha. Con el candado abierto, el ancho y el alto cambian por separado (la letra se estira). Si una pieza no cabe en la hoja se reduce solo esa.</p>
+      <label class="field">Calidad
+        <select id="abcDpi">
+          <option value="150">Normal (150 dpi)</option>
+          <option value="300" selected>Alta (300 dpi)</option>
+          <option value="600">Máxima (600 dpi)</option>
+        </select>
+      </label>
+    </section>
+
+    <div class="actions">
+      <button id="abcOpen" class="btn btn-primary">
+        <svg viewBox="0 0 24 24"><path d="M14 3h7v7M21 3l-9 9"/><path d="M19 14v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h5"/></svg><span>Abrir PDF</span>
+      </button>
+      <button id="abcDownload" class="btn btn-soft">
+        <svg viewBox="0 0 24 24"><path d="M12 4v12m0 0-4-4m4 4 4-4"/><path d="M4 18v1a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-1"/></svg><span>Descargar PDF</span>
+      </button>
+      <div class="status" id="status" aria-live="polite"></div>
+    </div>
+  </aside>
+
+  <main class="deck" aria-label="Vista previa de las hojas">
+    <nav class="deck-thumbs" id="thumbs" aria-label="Miniaturas de las hojas">
+      <ol id="thumbList"></ol>
+    </nav>
+    <div class="deck-main" id="deck">
+      <div class="deck-bar">
+        <div class="deck-hist">
+          <button type="button" id="togglePanel" class="deck-panel" aria-expanded="true" title="Ocultar configuración">
+            <svg class="ico-hide" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16M16 10l-2 2 2 2"/></svg>
+            <svg class="ico-show" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16M14 10l2 2-2 2"/></svg>
+          </button>
+        </div>
+        <div class="deck-hist">
+          <button type="button" id="undo" title="Deshacer (Ctrl+Z)" aria-label="Deshacer" disabled>
+            <svg viewBox="0 0 24 24"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></svg>
+          </button>
+          <button type="button" id="redo" title="Rehacer (Ctrl+Y)" aria-label="Rehacer" disabled>
+            <svg viewBox="0 0 24 24"><path d="m15 14 5-5-5-5"/><path d="M20 9H9.5a5.5 5.5 0 0 0 0 11H13"/></svg>
+          </button>
+        </div>
+        <b id="deckCount"></b>
+        <span class="deck-size" id="deckSize"></span>
+        <span class="deck-tip">Arrastra una hoja para cambiar su orden</span>
+        <div class="deck-views" role="group" aria-label="Vista">
+          <button type="button" data-view="column" aria-pressed="true" title="Una columna">
+            <svg viewBox="0 0 24 24"><rect x="3" y="3" width="5" height="18" rx="1"/><rect x="11" y="3" width="10" height="18" rx="1"/></svg>
+          </button>
+          <button type="button" data-view="grid" aria-pressed="false" title="Cuadrícula: todas las hojas">
+            <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+          </button>
+        </div>
+      </div>
+      <ol class="deck-list" id="slides" aria-label="Hojas"></ol>
+      <div class="empty" id="empty">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20 9 4h2l5 16M6 14h8"/></svg>
+        <span>Escribe lo que quieres imprimir</span>
+      </div>
+    </div>
+    <div class="piece-tip" id="pieceTip" hidden></div>
+  </main>
+
+  <dialog class="dialog" id="dlDialog" aria-label="Descargar hojas">
+    <div class="dialog-box">
+      <div class="dialog-bar">
+        <div class="dialog-sel">
+          <span id="dlCount"></span>
+          <button class="link-btn" id="dlAll" type="button">Quitar todas</button>
+        </div>
+        <div class="dialog-actions">
+          <button class="btn" id="dlCancel" type="button">Cancelar</button>
+          <button class="btn btn-primary" id="dlGo" type="button">
+            <svg viewBox="0 0 24 24"><path d="M12 4v12m0 0-4-4m4 4 4-4"/><path d="M4 18v1a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-1"/></svg><span>Descargar</span>
+          </button>
+        </div>
+      </div>
+      <div class="dialog-body">
+        <div class="slides" id="dlGrid"></div>
+      </div>
+      <div class="dl-format" role="radiogroup" aria-label="Formato de descarga">
+        <label class="fmt">
+          <input type="radio" name="dlFormat" value="pdf" checked>
+          <svg viewBox="0 0 24 24"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6M8 13h8M8 17h5"/></svg>
+          <span><b>Un solo PDF</b><small>Todas las hojas juntas en un archivo</small></span>
+        </label>
+        <label class="fmt">
+          <input type="radio" name="dlFormat" value="zip">
+          <svg viewBox="0 0 24 24"><path d="M4 7V5a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-2"/><path d="M10 3v2m0 2v2m0 2v2m-2 2h4v4H8z"/></svg>
+          <span><b>Un PDF por hoja (.zip)</b><small>Cada hoja en su propio archivo</small></span>
+        </label>
+      </div>
+    </div>
+  </dialog>
+
+  <script src="../vendor/jspdf.umd.min.js"></script>
+  <script src="../vendor/jszip.min.js"></script>
+  <script src="../ui.js"></script>
+  <script src="../fonts.js"></script>
+  <script src="letras.js"></script>
+</body>
+</html>
