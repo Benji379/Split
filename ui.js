@@ -321,6 +321,14 @@
   document.addEventListener('scroll', (e) => { if (openColor && !openColor.wrap.contains(e.target)) openColor.close(); }, true);
   window.addEventListener('resize', () => openColor && openColor.close());
 
+  // Abierta con doble clic (file://) una carpeta no carga su index.html: se completa el enlace
+  if (location.protocol === 'file:') {
+    document.querySelectorAll('a[href]').forEach((a) => {
+      const h = a.getAttribute('href');
+      if (!/^[a-z]+:/i.test(h) && /(^|\/)$/.test(h.split(/[?#]/)[0])) a.setAttribute('href', h.replace(/^([^?#]*)/, '$1index.html'));
+    });
+  }
+
   // Para controles creados después (p. ej. el diálogo de fuentes)
   window.SplitUI = { enhanceSelect, enhanceColor, enhanceNumber };
 

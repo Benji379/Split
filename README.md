@@ -135,21 +135,33 @@ Las librerías de HEIC y TIFF **solo se cargan cuando subes uno de esos archivos
 
 ```
 .
-├── index.html              # Página principal (HTML + metadatos SEO)
-├── style.css               # Estilos y diseño adaptable a celular
-├── app.js                  # Lógica: vista previa, reglas, generación de PDF/ZIP
+├── index.html              # Inicio: tarjetas con la vista previa de cada herramienta
+├── poster/index.html       # Póster en varias hojas (HTML + metadatos SEO)
+├── style.css               # Estilos de todas las páginas y diseño adaptable a celular
+├── app.js                  # Póster: vista previa, reglas, generación de PDF/ZIP
 ├── ui.js                   # Controles propios: desplegables y botones −/+
 ├── fonts.js                # Lista de fuentes, carga bajo demanda y dibujo de texto
 ├── fonts/                  # Fuentes .ttf (Google Fonts: OFL / Apache 2.0)
 ├── impresion-letras/       # Página de letras para imprimir
 │   ├── index.html
 │   └── letras.js
+├── colorear/               # Dibujos para colorear a partir de una imagen
+│   ├── index.html
+│   ├── colorear.js         #   Interfaz, antes/después, números y guía de colores, PDF/PNG
+│   └── trazo.js            #   Conversión a líneas (Web Worker): zonas de color o bordes
+├── editar-pdf/             # Editor de PDF: texto, OCR, imágenes, formas, enlaces
+│   ├── index.html
+│   └── editor.js
 ├── vendor/                 # Librerías del navegador (no necesitan internet)
 │   ├── jspdf.umd.min.js    #   Generación de PDF
 │   ├── jszip.min.js        #   Generación de .zip
 │   ├── heic2any.min.js     #   Conversión de HEIC
 │   ├── UTIF.js             #   Conversión de TIFF
-│   └── pako_inflate.min.js #   Descompresión para TIFF
+│   ├── pako_inflate.min.js #   Descompresión para TIFF
+│   ├── pdfjs/              #   Lectura y dibujo de PDF (pdf.js, con cmaps y fuentes estándar)
+│   ├── pdf-lib.min.js      #   Escritura de los cambios en el PDF
+│   ├── fontkit.umd.min.js  #   Incrustar fuentes propias en el PDF
+│   └── tesseract/          #   OCR (motor WebAssembly + idiomas español e inglés)
 ├── img/
 │   ├── og-image.png        # Imagen al compartir en redes (1200×630)
 │   ├── icon-192.png        # Ícono de la app
@@ -172,9 +184,19 @@ Es una **página 100 % estática**: no necesita Node, servidor ni base de datos 
 
 ---
 
+## Otras herramientas
+
+- **Inicio (`/`)**: una tarjeta por herramienta con su vista previa.
+- **Póster (`/poster/`)**: la herramienta original para imprimir una imagen en varias hojas.
+- **Letras para imprimir (`/impresion-letras/`)**.
+- **Dibujos para colorear (`/colorear/`)**: convierte una imagen a color en líneas negras. Tiene dos estilos (*dibujo animado*: agrupa los colores en zonas; *foto*: busca los bordes), controles de detalle, grosor, limpieza y **suavizado de bordes**, y la opción *Mejorar detalles* (más resolución). Vistas **Antes / Después / Comparar (deslizador) / Lado a lado**. Opcional: **colorear por números**, con la guía de colores en la hoja (lista o frases) y la posibilidad de tocar una zona para cambiar su color o quitarle el número.
+- **Editar PDF (`/editar-pdf/`)**: clic en un texto para cambiarlo (se tapa el original con el color del fondo y se escribe encima), moverlo con su manija, cambiar tamaño, color, negrita/cursiva o fuente (las de `fonts/` o una propia, que se incrusta en el PDF). **OCR** para PDFs escaneados. Inserta **texto, imágenes, líneas, rectángulos, elipses y enlaces** (a cualquier objeto o a una zona). **Ctrl+Z / Ctrl+Y** para deshacer y rehacer. Nota: el texto reemplazado queda tapado, no eliminado del archivo.
+
+> El editor de PDF y el OCR usan módulos que el navegador no carga desde `file://`: ábrelos desde el sitio o con un servidor local.
+
 ## Ejecutar en local
 
-**Opción 1: doble clic.** Abre `index.html` directamente en Chrome, Edge o Firefox. Funciona todo.
+**Opción 1: doble clic.** Abre `index.html` directamente en Chrome, Edge o Firefox. Funcionan el póster, las letras y colorear (el editor de PDF necesita la opción 2).
 
 **Opción 2: servidor local.** Es útil para probar el manifest o la instalación como app, que requieren `http://`:
 

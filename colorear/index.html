@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Dibujos para colorear desde una imagen — blanco y negro para niños | Split</title>
+  <meta name="description" content="Convierte cualquier imagen a color en un dibujo en blanco y negro para colorear. Numera las zonas, genera la guía de colores y descarga el PDF listo para imprimir. Gratis y desde el navegador.">
+  <meta name="robots" content="index, follow">
+  <link rel="canonical" href="https://split.beyfast.com/colorear/">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Split · BeyFast">
+  <meta property="og:locale" content="es_ES">
+  <meta property="og:url" content="https://split.beyfast.com/colorear/">
+  <meta property="og:title" content="Dibujos para colorear a partir de tus imágenes">
+  <meta property="og:description" content="Convierte una imagen a color en un dibujo para colorear, con números y guía de colores opcionales. PDF listo para imprimir.">
+  <meta property="og:image" content="https://split.beyfast.com/img/og-image.png">
+  <link rel="icon" href="../favicon.ico" sizes="any">
+  <link rel="icon" type="image/png" sizes="192x192" href="../img/icon-192.png">
+  <link rel="apple-touch-icon" href="../apple-touch-icon.png">
+  <meta name="theme-color" content="#4f46e5">
+  <link rel="stylesheet" href="../style.css">
+</head>
+<body class="color-page">
+  <h1 class="sr-only">Dibujos para colorear a partir de una imagen</h1>
+  <aside class="panel" aria-label="Configuración del dibujo">
+    <a class="back-link" href="../">
+      <svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg><span>Inicio</span>
+    </a>
+
+    <section class="card">
+      <h2><span class="num">1</span> Imagen</h2>
+      <label class="drop" id="drop">
+        <input type="file" id="file" accept="image/*,.heic,.heif,.tif,.tiff,.avif,.bmp,.svg">
+        <svg class="drop-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 16V4m0 0-4 4m4-4 4 4"/><path d="M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/></svg>
+        <span class="drop-title" id="dropText">Arrastra tu imagen a color</span>
+        <span class="drop-sub">También puedes pegarla con Ctrl+V</span>
+        <span class="btn btn-soft drop-btn">Elegir archivo</span>
+      </label>
+      <div class="meta" id="imgInfo"></div>
+      <div class="toolbar two">
+        <button class="btn" id="rotL" title="Girar a la izquierda">
+          <svg viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg><span>Girar izquierda</span>
+        </button>
+        <button class="btn" id="rotR" title="Girar a la derecha">
+          <svg viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></svg><span>Girar derecha</span>
+        </button>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2><span class="num">2</span> Dibujo</h2>
+      <div class="modes" role="radiogroup" aria-label="Tipo de imagen">
+        <label class="mode">
+          <input type="radio" name="style" value="cartoon" checked>
+          <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="9" cy="10" r="1"/><circle cx="15" cy="10" r="1"/><path d="M8.5 14.5a4 4 0 0 0 7 0"/></svg>
+          <b>Dibujo animado</b><span>Ilustraciones, caricaturas, logos</span>
+        </label>
+        <label class="mode">
+          <input type="radio" name="style" value="photo">
+          <svg viewBox="0 0 24 24"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>
+          <b>Foto</b><span>Fotos reales: busca los bordes</span>
+        </label>
+      </div>
+      <label class="field range-field">Detalle <output id="detailOut"></output>
+        <input type="range" id="detail" min="1" max="10" step="1" value="5">
+      </label>
+      <label class="field range-field">Grosor de las líneas <output id="thickOut"></output>
+        <input type="range" id="thick" min="1" max="10" step="1" value="4">
+      </label>
+      <label class="field range-field">Quitar detalles pequeños <output id="cleanOut"></output>
+        <input type="range" id="clean" min="0" max="10" step="1" value="5">
+      </label>
+      <label class="field range-field">Suavizar bordes <output id="smoothOut"></output>
+        <input type="range" id="smooth" min="0" max="10" step="1" value="5">
+      </label>
+      <label class="switch"><input type="checkbox" id="hq"><span class="track"></span> Mejorar detalles (más lento)</label>
+      <label class="switch"><input type="checkbox" id="fillDark"><span class="track"></span> Dejar rellenas las zonas negras</label>
+      <label class="field">Color de las líneas
+        <input type="color" id="lineColor" value="#000000">
+      </label>
+      <p class="hint">Menos detalle y más limpieza dan dibujos más simples, ideales para los más pequeños. Sube "Suavizar bordes" si las líneas salen temblorosas o con dientes.</p>
+    </section>
+
+    <section class="card">
+      <h2><span class="num">3</span> Números y colores</h2>
+      <label class="switch"><input type="checkbox" id="numOn"><span class="track"></span> Colorear por números</label>
+      <div class="num-box" id="numBox" hidden>
+        <label class="switch"><input type="checkbox" id="skipWhite" checked><span class="track"></span> No numerar las zonas blancas</label>
+        <label class="field range-field">Tamaño de los números <output id="numSizeOut"></output>
+          <input type="range" id="numSize" min="1" max="10" step="1" value="4">
+        </label>
+        <label class="switch"><input type="checkbox" id="legendOn" checked><span class="track"></span> Guía de colores en la hoja</label>
+        <div class="field" id="legendStyleField">Cómo se escribe la guía
+          <div class="seg" role="radiogroup" aria-label="Estilo de la guía">
+            <label><input type="radio" name="legendStyle" value="list" checked><span>1 = Rojo</span></label>
+            <label><input type="radio" name="legendStyle" value="sentence"><span>Frases</span></label>
+          </div>
+        </div>
+        <label class="switch"><input type="checkbox" id="legendSwatch" checked><span class="track"></span> Muestra del color en la guía</label>
+        <ol class="legend-list" id="legendList" aria-label="Colores usados"></ol>
+        <p class="hint">Toca una zona en la vista previa para cambiar su color o quitarle el número. Puedes cambiar el nombre de cada color en la lista.</p>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2><span class="num">4</span> Hoja</h2>
+      <div class="grid2">
+        <label class="field span2">Tamaño de papel
+          <select id="paper">
+            <option value="215.9x279.4">Carta (bond 21.6 × 27.9 cm)</option>
+            <option value="215.9x330.2">Oficio (21.6 × 33 cm)</option>
+            <option value="210x297" selected>A4 (21 × 29.7 cm)</option>
+            <option value="297x420">A3 (29.7 × 42 cm)</option>
+            <option value="148x210">A5 (14.8 × 21 cm)</option>
+          </select>
+        </label>
+        <label class="field">Orientación
+          <select id="orient">
+            <option value="auto">Automática</option>
+            <option value="portrait">Vertical</option>
+            <option value="landscape">Horizontal</option>
+          </select>
+        </label>
+        <label class="field">Margen (mm)
+          <input type="number" id="margin" min="0" max="40" step="1" value="10" inputmode="numeric">
+        </label>
+      </div>
+      <label class="switch"><input type="checkbox" id="nameLine" checked><span class="track"></span> Línea para escribir el nombre</label>
+      <label class="switch"><input type="checkbox" id="guide"><span class="track"></span> Imagen original pequeña como guía</label>
+      <label class="field">Calidad
+        <select id="dpi">
+          <option value="150">Normal (150 dpi)</option>
+          <option value="300" selected>Alta (300 dpi)</option>
+        </select>
+      </label>
+    </section>
+
+    <div class="actions">
+      <button id="openPdf" class="btn btn-primary" disabled>
+        <svg viewBox="0 0 24 24"><path d="M14 3h7v7M21 3l-9 9"/><path d="M19 14v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h5"/></svg><span>Abrir PDF</span>
+      </button>
+      <button id="downloadPdf" class="btn btn-soft" disabled>
+        <svg viewBox="0 0 24 24"><path d="M12 4v12m0 0-4-4m4 4 4-4"/><path d="M4 18v1a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-1"/></svg><span>Descargar PDF</span>
+      </button>
+      <button id="downloadPng" class="link-btn span2" type="button" disabled>Descargar como imagen PNG</button>
+      <div class="status" id="status" aria-live="polite"></div>
+    </div>
+  </aside>
+
+  <main class="stage" id="stage" aria-label="Vista previa del dibujo">
+    <button class="panel-toggle" id="togglePanel" type="button" aria-expanded="true" title="Ocultar configuración">
+      <svg class="ico-hide" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16M16 10l-2 2 2 2"/></svg>
+      <svg class="ico-show" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16M14 10l2 2-2 2"/></svg>
+    </button>
+    <div class="view-seg" role="group" aria-label="Vista" id="viewSeg" hidden>
+      <button type="button" data-view="before" aria-pressed="false">Antes</button>
+      <button type="button" data-view="after" aria-pressed="false">Después</button>
+      <button type="button" data-view="compare" aria-pressed="true">Comparar</button>
+      <button type="button" data-view="side" aria-pressed="false">Lado a lado</button>
+    </div>
+    <div class="busy" id="busy" hidden><span></span>Procesando…</div>
+    <canvas id="preview"></canvas>
+    <div class="region-pop" id="regionPop" role="dialog" aria-label="Color de la zona" hidden>
+      <div class="text-pop-head">
+        <b>Color de esta zona</b>
+        <button type="button" class="fd-x" id="regionClose" aria-label="Cerrar"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+      </div>
+      <div class="region-swatches" id="regionSwatches"></div>
+      <div class="region-acts">
+        <button type="button" class="btn" id="regionNone">Sin número</button>
+        <button type="button" class="btn" id="regionAuto">Automático</button>
+      </div>
+    </div>
+    <div class="empty" id="empty">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20a8 8 0 1 1 8-8c0 2.2-1.8 3-3.5 3H15a2 2 0 0 0-1.5 3.3A1 1 0 0 1 12 20z"/><circle cx="7.5" cy="11" r="1"/><circle cx="10.5" cy="7.5" r="1"/><circle cx="15" cy="8" r="1"/></svg>
+      <span>Sube una imagen a color para convertirla en dibujo</span>
+    </div>
+  </main>
+
+  <script src="../vendor/jspdf.umd.min.js"></script>
+  <script src="../ui.js"></script>
+  <script src="trazo.js"></script>
+  <script src="colorear.js"></script>
+</body>
+</html>

@@ -482,12 +482,13 @@
     });
   }
 
-  // Carga una librería de vendor/ solo cuando hace falta
+  // Carga una librería de vendor/ solo cuando hace falta (relativa a app.js, no a la página)
   const scripts = {};
+  const appBase = document.currentScript ? document.currentScript.src : location.href;
   function loadScript(src) {
     return scripts[src] || (scripts[src] = new Promise((resolve, reject) => {
       const s = document.createElement('script');
-      s.src = src;
+      s.src = new URL(src, appBase).href;
       s.onload = resolve;
       s.onerror = () => { delete scripts[src]; reject(new Error('no se pudo cargar ' + src)); };
       document.head.appendChild(s);

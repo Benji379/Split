@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Editar PDF en línea — cambia el texto o usa OCR | Split</title>
+  <meta name="description" content="Edita el texto de un PDF directamente en el navegador: cambia, borra o añade texto, y reconoce el texto de PDFs escaneados con OCR. Gratis y sin subir tus archivos.">
+  <meta name="robots" content="index, follow">
+  <link rel="canonical" href="https://split.beyfast.com/editar-pdf/">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Split · BeyFast">
+  <meta property="og:locale" content="es_ES">
+  <meta property="og:url" content="https://split.beyfast.com/editar-pdf/">
+  <meta property="og:title" content="Editar PDF: cambia el texto o reconócelo con OCR">
+  <meta property="og:description" content="Cambia, borra o añade texto en tus PDFs, también en los escaneados. Todo en el navegador.">
+  <meta property="og:image" content="https://split.beyfast.com/img/og-image.png">
+  <link rel="icon" href="../favicon.ico" sizes="any">
+  <link rel="icon" type="image/png" sizes="192x192" href="../img/icon-192.png">
+  <link rel="apple-touch-icon" href="../apple-touch-icon.png">
+  <meta name="theme-color" content="#4f46e5">
+  <link rel="stylesheet" href="../style.css">
+</head>
+<body class="pdf-page">
+  <h1 class="sr-only">Editar PDF: cambiar el texto o reconocerlo con OCR</h1>
+  <aside class="panel" aria-label="Edición del PDF">
+    <a class="back-link" href="../">
+      <svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg><span>Inicio</span>
+    </a>
+
+    <section class="card">
+      <h2><span class="num">1</span> PDF</h2>
+      <label class="drop" id="drop">
+        <input type="file" id="file" accept="application/pdf,.pdf">
+        <svg class="drop-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6M9 14h6M9 17h4"/></svg>
+        <span class="drop-title" id="dropText">Arrastra tu PDF aquí</span>
+        <span class="drop-sub">Se abre en tu navegador: no se sube a ningún servidor</span>
+        <span class="btn btn-soft drop-btn">Elegir PDF</span>
+      </label>
+      <div class="meta" id="pdfInfo"></div>
+    </section>
+
+    <section class="card">
+      <h2><span class="num">2</span> Editar e insertar</h2>
+      <p class="hint first">Haz clic en cualquier texto del PDF para cambiarlo. Para insertar, elige una herramienta y haz clic (o arrastra) sobre la hoja.</p>
+      <div class="tools-grid" role="group" aria-label="Insertar">
+        <button class="tool-btn" type="button" data-tool="text" aria-pressed="false" title="Texto nuevo: haz clic en la hoja">
+          <svg viewBox="0 0 24 24"><path d="M5 6V4h14v2M12 4v16M9 20h6"/></svg><span>Texto</span>
+        </button>
+        <button class="tool-btn" type="button" id="addImage" title="Imagen desde tu equipo (también con Ctrl+V)">
+          <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="m21 17-5-5-9 8"/></svg><span>Imagen</span>
+        </button>
+        <button class="tool-btn" type="button" data-tool="line" aria-pressed="false" title="Línea: arrastra sobre la hoja (Mayús = recta)">
+          <svg viewBox="0 0 24 24"><path d="M4 20 20 4"/></svg><span>Línea</span>
+        </button>
+        <button class="tool-btn" type="button" data-tool="rect" aria-pressed="false" title="Rectángulo: arrastra sobre la hoja">
+          <svg viewBox="0 0 24 24"><rect x="4" y="6" width="16" height="12" rx="1"/></svg><span>Rectángulo</span>
+        </button>
+        <button class="tool-btn" type="button" data-tool="ellipse" aria-pressed="false" title="Elipse: arrastra sobre la hoja">
+          <svg viewBox="0 0 24 24"><ellipse cx="12" cy="12" rx="9" ry="6.5"/></svg><span>Elipse</span>
+        </button>
+        <button class="tool-btn" type="button" data-tool="link" aria-pressed="false" title="Zona con enlace: arrastra sobre lo que quieras enlazar">
+          <svg viewBox="0 0 24 24"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/></svg><span>Enlace</span>
+        </button>
+      </div>
+      <input type="file" id="imageFile" accept="image/*" hidden>
+      <label class="switch"><input type="checkbox" id="showBoxes" checked><span class="track"></span> Marcar los textos editables</label>
+
+      <div class="sel-box" id="selBox" hidden>
+        <div class="sel-head"><b id="selTitle">Selección</b><span class="meta" id="selInfo"></span></div>
+
+        <div class="sel-part" data-for="text">
+          <div class="grid2">
+            <label class="field">Tamaño (pt)
+              <input type="number" id="selSize" min="3" max="300" step="0.5" value="12" inputmode="decimal">
+            </label>
+            <label class="field">Color del texto
+              <input type="color" id="selColor" value="#000000">
+            </label>
+            <label class="field span2" id="selBgField">Color para tapar el original
+              <input type="color" id="selBg" value="#ffffff">
+            </label>
+          </div>
+          <div class="toolbar two">
+            <label class="switch"><input type="checkbox" id="selBold"><span class="track"></span> Negrita</label>
+            <label class="switch"><input type="checkbox" id="selItalic"><span class="track"></span> Cursiva</label>
+          </div>
+          <div class="field">Fuente
+            <div class="seg seg3" role="radiogroup" aria-label="Fuente estándar">
+              <label><input type="radio" name="selStd" value="sans"><span>Helvetica</span></label>
+              <label><input type="radio" name="selStd" value="serif"><span>Times</span></label>
+              <label><input type="radio" name="selStd" value="mono"><span>Courier</span></label>
+            </div>
+          </div>
+          <details class="more-fonts" id="moreFonts">
+            <summary>Más fuentes <span id="curFont"></span></summary>
+            <ul class="font-list" id="selFonts" aria-label="Fuentes"></ul>
+          </details>
+        </div>
+
+        <div class="sel-part" data-for="shape">
+          <div class="grid2">
+            <label class="field">Color de la línea
+              <input type="color" id="shStroke" value="#1b1f3b">
+            </label>
+            <label class="field">Grosor (pt)
+              <input type="number" id="shWidth" min="0" max="40" step="0.5" value="1.5" inputmode="decimal">
+            </label>
+          </div>
+          <label class="switch" id="shDashRow"><input type="checkbox" id="shDash"><span class="track"></span> Línea punteada</label>
+          <div class="fill-row" id="shFillRow">
+            <label class="switch"><input type="checkbox" id="shFillOn"><span class="track"></span> Relleno</label>
+            <label class="field"><input type="color" id="shFill" value="#fde68a"></label>
+          </div>
+        </div>
+
+        <label class="field" id="linkField">Enlace (URL o correo)
+          <input type="text" id="selLink" placeholder="https://… o nombre@correo.com" spellcheck="false" autocomplete="off">
+        </label>
+
+        <div class="toolbar two">
+          <button class="btn" id="selReset" type="button"><svg viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg><span>Restaurar</span></button>
+          <button class="btn btn-danger" id="selDelete" type="button"><svg viewBox="0 0 24 24"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/></svg><span>Borrar</span></button>
+        </div>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2><span class="num">3</span> OCR · PDF escaneado</h2>
+      <p class="hint first">Si el PDF es una foto o un escaneo, el texto no se puede seleccionar. El OCR lo reconoce y lo vuelve editable.</p>
+      <label class="field">Idioma del documento
+        <select id="ocrLang">
+          <option value="spa">Español</option>
+          <option value="eng">Inglés</option>
+          <option value="spa+eng">Español + inglés</option>
+        </select>
+      </label>
+      <div class="toolbar two">
+        <button class="btn" id="ocrPage" type="button" disabled><svg viewBox="0 0 24 24"><path d="M4 7V5a1 1 0 0 1 1-1h2M17 4h2a1 1 0 0 1 1 1v2M20 17v2a1 1 0 0 1-1 1h-2M7 20H5a1 1 0 0 1-1-1v-2"/><path d="M8 10h8M8 14h5"/></svg><span>Esta hoja</span></button>
+        <button class="btn" id="ocrAll" type="button" disabled><svg viewBox="0 0 24 24"><rect x="6" y="3" width="13" height="16" rx="1.5"/><path d="M4 7v12a2 2 0 0 0 2 2h10"/><path d="M9 8h7M9 12h5"/></svg><span>Todas las hojas</span></button>
+      </div>
+      <button class="btn add-text" id="copyText" type="button" title="Copia todo el texto del PDF (incluido el reconocido con OCR)">
+        <svg viewBox="0 0 24 24"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></svg><span>Copiar todo el texto</span>
+      </button>
+      <div class="progress" id="ocrProgress" hidden><span id="ocrBar"></span></div>
+      <div class="meta" id="ocrInfo"></div>
+    </section>
+
+    <div class="actions">
+      <button id="openPdf" class="btn btn-primary" disabled>
+        <svg viewBox="0 0 24 24"><path d="M14 3h7v7M21 3l-9 9"/><path d="M19 14v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h5"/></svg><span>Abrir PDF</span>
+      </button>
+      <button id="downloadPdf" class="btn btn-soft" disabled>
+        <svg viewBox="0 0 24 24"><path d="M12 4v12m0 0-4-4m4 4 4-4"/><path d="M4 18v1a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-1"/></svg><span>Descargar PDF</span>
+      </button>
+      <div class="status" id="status" aria-live="polite"></div>
+    </div>
+  </aside>
+
+  <main class="stage pdf-stage" id="stage" aria-label="Páginas del PDF">
+    <button class="panel-toggle" id="togglePanel" type="button" aria-expanded="true" title="Ocultar configuración">
+      <svg class="ico-hide" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16M16 10l-2 2 2 2"/></svg>
+      <svg class="ico-show" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16M14 10l2 2-2 2"/></svg>
+    </button>
+    <div class="pdf-hist" id="histBar" hidden>
+      <button type="button" id="undo" title="Deshacer (Ctrl+Z)" aria-label="Deshacer" disabled>
+        <svg viewBox="0 0 24 24"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></svg>
+      </button>
+      <button type="button" id="redo" title="Rehacer (Ctrl+Y)" aria-label="Rehacer" disabled>
+        <svg viewBox="0 0 24 24"><path d="m15 14 5-5-5-5"/><path d="M20 9H9.5a5.5 5.5 0 0 0 0 11H13"/></svg>
+      </button>
+    </div>
+    <div class="pdf-zoom" role="group" aria-label="Zoom" id="zoomBar" hidden>
+      <button type="button" id="zoomOut" title="Alejar" aria-label="Alejar"><svg viewBox="0 0 24 24"><path d="M6 12h12"/></svg></button>
+      <span id="zoomVal">100%</span>
+      <button type="button" id="zoomIn" title="Acercar" aria-label="Acercar"><svg viewBox="0 0 24 24"><path d="M6 12h12M12 6v12"/></svg></button>
+    </div>
+    <div class="pdf-scroll" id="scroller">
+      <ol class="pdf-pages" id="pages"></ol>
+    </div>
+    <div class="empty" id="empty">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6M9 14h6M9 17h4"/></svg>
+      <span>Abre un PDF para editar su texto</span>
+    </div>
+  </main>
+
+  <script src="../vendor/jszip.min.js"></script>
+  <script src="../ui.js"></script>
+  <script src="../fonts.js"></script>
+  <script src="editor.js"></script>
+</body>
+</html>

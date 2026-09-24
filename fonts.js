@@ -283,7 +283,7 @@
     const family = `Split Custom ${++customN}`;
     const ff = await new FontFace(family, buf).load(); // falla si el archivo no es una fuente
     document.fonts.add(ff);
-    const f = { name: clean, family, weight: 400, style: 'normal', source: 'upload', custom: true, loaded: true, ready: Promise.resolve() };
+    const f = { name: clean, family, weight: 400, style: 'normal', source: 'upload', custom: true, loaded: true, ready: Promise.resolve(), buf };
     FONTS.unshift(f);
     if (save) idb('readwrite', (st) => st.put({ name: clean, buf })).catch(() => {});
     changed();
@@ -761,8 +761,16 @@
     return d;
   }
 
+  // Archivo de la fuente (para incrustarla en un PDF); null si es del sistema o de Google Fonts
+  async function bytes(name) {
+    const f = byName(name);
+    if (f.source === 'upload') return f.buf ? f.buf.slice(0) : null;
+    if (f.source === 'file') return (await fetch(base + f.file)).arrayBuffer();
+    return null;
+  }
+
   window.SplitFonts = {
-    FONTS, byName, css, fontString, load, loadAll, capRatio, textCanvas, measure, fontList, parseGoogle, ready,
+    FONTS, byName, css, fontString, load, loadAll, capRatio, textCanvas, measure, fontList, parseGoogle, ready, bytes,
     onChange: (fn) => listeners.add(fn),
   };
 })();
